@@ -8,6 +8,10 @@ import dotenv from 'dotenv';
 import './db.js';
 import cookieParser from 'cookie-parser';
 
+import User from './Models/userSchema.js';
+import authRouter from './Routes/Auth.js';
+
+
 
 dotenv.config();
 
@@ -19,6 +23,8 @@ app.use(cors());
 app.get('/', (req, res) => {
     res.json({message: 'API Working successfully'});
 });
+
+app.use('/auth', authRouter);
 
 app.listen(PORT, ()=> {
     console.log(`Server started on PORT: ${PORT}`);
