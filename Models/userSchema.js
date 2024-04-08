@@ -13,20 +13,26 @@ const userSchema = new mongoose.Schema({
     email:{
         type: String,
         required: true,
+        unique: true,
     },
     blogs: {
         type: Array,
         default: [],
     }
+},{
+    timestamps: true,
 });
 
 
-userSchema.pre('save', async(req,res)=>{
+userSchema.pre('save', async function(next){
     const user = this;
 
     if(user.isModified('password')){
         user.password = await bcrypt.hash(user.password, 8);
     }
+    next();
 });
 
-export default mongoose.model('User', userSchema);
+const User = mongoose.model('User', userSchema);
+
+export default User;
