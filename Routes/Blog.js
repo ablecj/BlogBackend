@@ -6,48 +6,57 @@ import authTokenHandler from '../Middlewares/authTokenMiddleware.js';
 import jwt from 'jsonwebtoken';
 
 
+// creating custom response
+function createResponse(ok, message, data) {
+    return {
+      ok,
+      message,
+      data,
+    };
+  }
 
 // checking the ownership of the post
 const checkBlogOwnership = async(req,res,next)=>{
     try {
         const blog = await Blog.findById(req.params.id);
         if(!blog){
-            return res.status(404).json({message: 'Blog post not fount!'})
+            return res.status(404).json(createResponse(false, 'Blog post not found'));
         }
         if(blog.owner.toString()!== req.userId){
-            return res.status(403).json({ message: "Permision denied: you are not own this blog"});
+            return res.status(403).json(createResponse(false, 'Permission denied: You do not own this blog'));
         }
         req.blog = blog;
         next();
     } catch (err) {
-        res.status(500).json({message: err.message});
+        res.status(500).json(createResponse(false, err.message));
     }
 }
 
 
 router.get('/test', authTokenHandler, async(req,res)=> {
-    res.json({
-        message: "Test api is working for the blog route"
-    })
+    res.json(createResponse(true, 'Test API works for blogs'));
 })
+
+
 
 // creating a new blog
 router.post('/', authTokenHandler, async(req,res)=>{
     try {
-        const {title, description, image, paragraph} = req.body;
-        const blog = new Blog({title,description, image, paragraph, owner: req.userId});
+        const { title, description, imageUrl, paragraphs, category } = req.body;
+        console.log(title, description, imageUrl, paragraphs,category )
+        const blog = new Blog({ title, description,imageUrl, paragraphs, owner: req.userId, category });
         await blog.save();
         // finding the id from the user collection
         const user = await User.findById(req.userId);
         if(!user){
-            return res.status(404).json({message: 'User Not Found'});
+            return res.status(404).json(createResponse(false, 'User not found'));
         }
         user.blogs.push(blog._id);
         await user.save();
 
-        res.status(200).json({message: 'Blog post created successfully', blog});
+        res.status(201).json(createResponse(true, 'Blog post created successfully', { blog }));
     } catch (err) {
-        res.status(500).json({message: err.message });
+        res.status(500).json(createResponse(false, err.message));
     }
 })
 
@@ -56,32 +65,30 @@ router.get('/:id', authTokenHandler, async(req, res)=> {
     try {
         const blog = await Blog.findById(req.params.id);
         if(!blog){
-            return res.status(404).json({message: "Blog post not found"})
+            return res.status(404).json(createResponse(false, "Blog post not found"))
         }
-        res.status(200).json(blog);
+        res.status(200).json(createResponse(true, 'Blog fetched successfully', { blog }));
     } catch (err) {
-        res.status(500).json({
-            message: err.message
-        })
+        res.status(500).json(createResponse(false, err.message));
     }
 })
 // route for updating the post 
 router.put('/:id', authTokenHandler, checkBlogOwnership, async(req,res)=>{
     try {
-        const {title, description, image, paragraph} = req.body;
+        const {title, description, imageUrl, paragraph,category } = req.body;
         const updateBlog = await Blog.findByIdAndUpdate(
           req.params.id,
-          {title, description, image, paragraph},
+          {title, description, imageUrl, paragraph, category},
           {new: true}  
         );
 
         if(!updateBlog){
-            return res.status(404).json({message: "Blog post not found!"});
+            return res.status(404).json(createResponse(false, 'Blog post not found'));
         }
 
-        res.status(200).json({message: 'Blog Post updated successfully!',updateBlog});
+        res.status(200).json(createResponse(true, 'Blog post updated successfully', { updateBlog }));
     } catch (err) {
-        res.status(500).json({message: err.message});
+        res.status(500).json(createResponse(false, err.message));
     }
 });
 
@@ -90,20 +97,24 @@ router.delete('/:id', authTokenHandler, checkBlogOwnership, async(req,res)=>{
     try {
         const deletinBlog = await Blog.findByIdAndDelete(req.params.id);
         if(!deletinBlog){
-            return res.status(404).json({message: "Blog post not found"});
+            return res.status(404).json(createResponse(false, 'Blog post not found'));
         }
         // deleting the blogs from the user schema
         const user = await User.findById(req.userId);
         if(!user){
-            return res.status(404).json({message: 'User not found'});
+            return res.status(404).json(createResponse(false, 'User not found'));
         }
         // deleting is not working need to check
-        user.blogs.pull(req.params.id);
-        await user.save();
-        res.status(200).json({message: "Blog deleted sucessfully", deletinBlog});
+       const blogIndex = user.blogs.indexOf(req.params.id);
+       if(blogIndex !== -1){
+            user.blogs.splice(blogIndex, 1);
+            await user.save();
+       }
+
+       res.status(200).json(createResponse(true, 'Blog post deleted successfully'));    
 
     } catch (err) {
-        res.status(500).json({message: err.message});
+        res.status(500).json(createResponse(false, err.message));
     }
 });
 
@@ -115,7 +126,7 @@ router.get('/', async (req, res) => {
         // selecting the pages 
         const page = parseInt(req.body.page) || 1; // Use req.query instead of req.body for GET requests
         // no. of blogs per page
-        const perPage = 2;
+        const perPage = 4;
 
         // for searching and finding the blogs with minimal content
         const searchQuery = new RegExp(search, 'i'); // Use 'i' for case-insensitive search
@@ -125,7 +136,7 @@ router.get('/', async (req, res) => {
         const totalPages = Math.ceil(totalBlogs / perPage);
 
         if (page < 1 || page > totalPages) {
-            return res.status(404).json({ message: 'Invalid page number' }); // Return here to stop further execution
+            return res.status(404).json(createResponse(flase, 'Invalid page number')); // Return here to stop further execution
         }
 
         // skip method to skip the pages 
@@ -133,10 +144,10 @@ router.get('/', async (req, res) => {
         const blogs = await Blog.find({ title: searchQuery })
             .sort({ createdAt: -1 }).skip(skip).limit(perPage);
 
-        return res.status(200).json({ blogs, totalPages, currentPage: page });
+        return res.status(200).json(createResponse (true, { blogs, totalPages, currentPage: page }));
 
     } catch (err) {
-        return res.status(500).json({ message: err.message });
+        return res.status(500).json( createResponse(false, err.message));
     }
 });
 

@@ -4,10 +4,10 @@ function errorHandler (err, req,res, next){
     return next(err);
    }
    console.log("ERROR MIDDLEWARE CALLED");
-   res.status(500).json({
-    message: 'Internal Server Error',
-    error: err.message
-   });
+   res.status(statusCode || 500).json({
+      ok: false, // Set the "ok" field to false for errors
+      message: err.message,
+  });
 }
 
 

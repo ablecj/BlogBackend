@@ -6,6 +6,7 @@ import bcrypt from 'bcrypt';
 import nodemailer from 'nodemailer';
 import errorHandler from '../Middlewares/errorMiddleware.js';
 import dotenv from 'dotenv';
+import authTokenHandler from '../Middlewares/authTokenMiddleware.js';
 
 dotenv.config();
 
@@ -29,6 +30,15 @@ router.get('/test', (req,res)=> {
     })
 });
 
+// create a response model
+function createResponse(ok, message, data) {
+    return {
+      ok,
+      message,
+      data,
+    };
+  }
+
 // send otp api logic
 router.post('/sendotp', (req,res, next)=>{
     const {email} = req.body;
@@ -45,23 +55,17 @@ router.post('/sendotp', (req,res, next)=>{
         //  console.log(mailOptions,"mailOptions");
          
          transporter.sendMail(mailOptions, async(err, info)=>{
-            if(err){
-                // console.log(err, "error");
-                res.status(500).json({
-                    message: err.message
-                });
-            }
-            else{
-
-                console.log(otp, "otp");
-                res.json({
-                    message: "OTP send successfully", otp: otp
-                }); 
+            if (err) {
+                console.log(err);
+                res.status(500).json(createResponse(false, err.message));
+            } else {
+                res.json(createResponse(true, 'OTP sent successfully', { otp }));
             }
          })
     }
-    catch(err){
-        next(err);
+    catch (err) {
+        console.log(err);
+        res.status(500).json(createResponse(false, err.message));
     }
 })
 
@@ -73,13 +77,13 @@ router.post('/register', async(req,res, next)=> {
         // tryto find there is already existing user
         const exisiting = await User.findOne({email: email});
         if(exisiting){
-            res.status(409).json({message: 'User already exists'});
+            return res.status(409).json(createResponse(false, 'Email already exists'));
         }
         // saving the new user to the database
         const newUser = new User({name, email, password});
 
         await newUser.save();
-        res.status(201).json({message: 'User registered successfuly !'});
+        res.status(201).json(createResponse(true, 'User registered successfully'));
 
     } catch (err) {
         next(err)
@@ -93,15 +97,11 @@ router.post('/login', async (req, res, next) => {
         console.log(password, "pass")
         const user = await User.findOne({email});
         if(!user){
-            res.status(400).json({
-                message: 'invalid email or password'
-            })
+            return res.status(400).json(createResponse(false, 'Invalid credentials'));
         }
         const isMatch = await bcrypt.compare(password, user.password);
         if(!isMatch){
-            res.status(400).json({
-                message: 'invalid credentials'
-            })
+            return res.status(400).json(createResponse(false, 'Invalid credentials'));
         }
         // auth token setting 
         const authToken = jwt.sign({userId: user._id}, process.env.JWT_SECRET_KEY, {expiresIn: '10m'});
@@ -109,7 +109,10 @@ router.post('/login', async (req, res, next) => {
 
         res.cookie('authToken', authToken, {httpOnly: true});
         res.cookie('refreshToken', refreshToken, {httpOnly: true});
-        res.status(200).json({message: 'Login Successfully'});
+        res.status(200).json(createResponse(true, 'Login successful', {
+            authToken,
+            refreshToken
+        }));
 
      } catch (err) {
         next(err);
@@ -119,6 +122,13 @@ router.post('/login', async (req, res, next) => {
 
 
 
-router.use(errorHandler)
+router.use(errorHandler);
+
+router.get('/checklogin', authTokenHandler, async(req,res)=>{
+    res.json({
+        ok: true,
+        message: 'User authenticated sucessfully !'
+    })
+})
 
 export default router;

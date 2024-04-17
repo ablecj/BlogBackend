@@ -9,7 +9,7 @@ function authTokenHandler(req, res, next){
     console.log("check auth token middleware is called!");
 
     if(!authToken || !refreshToken){
-        return res.status(401).json({message: 'Authentication failed: No authtoken or refreshtoken provided'});
+        return res.status(401).json({ message: 'Authentication failed: No authToken or refreshToken provided' , ok : false });
     }
 
     jwt.verify(authToken, process.env.JWT_SECRET_KEY, (err, decoded) =>{
@@ -19,9 +19,7 @@ function authTokenHandler(req, res, next){
                 // refresh token and auth token both are expired
                 if(refreshErr){
                     // Both tokens are expired show the error and ask him to login
-                    return res.status(401).json({
-                        message: 'Authentication failed: Both Tokens are expired'
-                    });
+                    return res.status(401).json({ message: 'Authentication failed: Both tokens are invalid', ok: false });
                 }
                 // refresh toen is not expired but auth token is expired 
                 else{
