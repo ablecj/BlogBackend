@@ -7,6 +7,7 @@ import nodemailer from 'nodemailer';
 import errorHandler from '../Middlewares/errorMiddleware.js';
 import dotenv from 'dotenv';
 import authTokenHandler from '../Middlewares/authTokenMiddleware.js';
+import session from 'express-session';
 
 dotenv.config();
 
@@ -105,7 +106,7 @@ router.post('/login', async (req, res, next) => {
         }
         // auth token setting 
         const authToken = jwt.sign({userId: user._id}, process.env.JWT_SECRET_KEY, {expiresIn: '10m'});
-        const refreshToken = jwt.sign({userId: user._id}, process.env.JWT_REFRESH_SECRET_KEY, {expiresIn: '1d'});
+        const refreshToken = jwt.sign({userId: user._id}, process.env.JWT_REFRESH_SECRET_KEY, {expiresIn: '50m'});
 
         res.cookie('authToken', authToken, {httpOnly: true});
         res.cookie('refreshToken', refreshToken, {httpOnly: true});
@@ -119,8 +120,53 @@ router.post('/login', async (req, res, next) => {
     }
 })
 
+// Configure session middleware
+const secretKey = process.env.SESSION_KEY; // Replace with your secret key
 
+router.use(
+  session({
+    secret: secretKey,
+    resave: false,
+    saveUninitialized: true,
+    cookie: {
+      secure: false, // Set secure to true if using HTTPS
+      httpOnly: true, // Set httpOnly to true for enhanced security
+      sameSite: "strict", // Set sameSite to 'strict' or 'lax' for enhanced security
+    },
+  })
+);
 
+// Logout route
+router.post('/logout', async (req, res) => {
+  // Check if user is authenticated (handled by authTokenHandler middleware) 
+
+  // Clear session cookie
+  res.clearCookie('authToken', { path: '/' });
+  res.clearCookie('refreshToken', { path: '/' });
+
+  // Destroy the session
+  if (req.session) {
+    console.log(req.session, "session from backend");
+    await new Promise((resolve, reject) => {
+      req.session.destroy((err) => {
+        if (err) {
+          console.error('Error destroying session:', err);
+          return reject(err);
+        }
+        // console.log(req.session, "session from backend after destroying");
+        resolve();
+      });
+    });
+
+    console.log(res, "response from backend logout")
+    // Session destroyed successfully
+    return res.status(200).json({ message: 'Logout successful' });
+    
+  } else {
+    // No session found, user is already logged out
+    return res.status(400).json({ message: 'User is already logged out' });
+  }
+});
 
 router.use(errorHandler);
 

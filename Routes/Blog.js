@@ -43,7 +43,7 @@ router.get('/test', authTokenHandler, async(req,res)=> {
 router.post('/', authTokenHandler, async(req,res)=>{
     try {
         const { title, description, imageUrl, paragraphs, category } = req.body;
-        console.log(title, description, imageUrl, paragraphs,category )
+        // console.log(title, description, imageUrl, paragraphs,category )
         const blog = new Blog({ title, description,imageUrl, paragraphs, owner: req.userId, category });
         await blog.save();
         // finding the id from the user collection
@@ -60,7 +60,7 @@ router.post('/', authTokenHandler, async(req,res)=>{
     }
 })
 
-// route for get the blog
+// route for get the blog by id 
 router.get('/:id', authTokenHandler, async(req, res)=> {
     try {
         const blog = await Blog.findById(req.params.id);

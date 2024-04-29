@@ -7,6 +7,8 @@ function authTokenHandler(req, res, next){
     const authToken = req.cookies.authToken;
     const refreshToken = req.cookies.refreshToken;
     console.log("check auth token middleware is called!");
+    console.log(authToken, "authtoken from checklogin backend")
+    console.log(refreshToken, "refreshToken from checklogin backend")
 
     if(!authToken || !refreshToken){
         return res.status(401).json({ message: 'Authentication failed: No authToken or refreshToken provided' , ok : false });
@@ -24,7 +26,7 @@ function authTokenHandler(req, res, next){
                 // refresh toen is not expired but auth token is expired 
                 else{
                     const newAuthToken = jwt.sign({userId: refreshDecoded.userId}, process.env.JWT_SECRET_KEY, {expiresIn: '10m'});
-                    const newRefreshToken = jwt.sign({userId: refreshDecoded.userId}, process.env.JWT_REFRESH_SECRET_KEY, {expiresIn: '1d'});
+                    const newRefreshToken = jwt.sign({userId: refreshDecoded.userId}, process.env.JWT_REFRESH_SECRET_KEY, {expiresIn: '50m'});
 
                     // sending the newAuthToken and newRefreshToken are sending with the cookies
                     res.cookies('authToken', newAuthToken, {httpOnly: true});
